@@ -14,11 +14,15 @@ function truncate(text) {
   return text.length > MAX_RESUME_CHARS ? `${text.slice(0, MAX_RESUME_CHARS)}…` : text;
 }
 
-function buildPrompt({ job, resumeText, matched, missing }) {
+function buildPrompt({ job, resumeText, matched, missing, jobAnalysis }) {
   const matchedLines = matched.length
     ? matched.map((m) => `- ${m.skill} — evidence in source resume/profile: "${m.evidence}"`).join("\n")
     : "- (none confirmed)";
   const missingLines = missing.length ? missing.map((m) => `- ${m}`).join("\n") : "- (none)";
+  const responsibilitiesBlock =
+    jobAnalysis?.available && jobAnalysis.responsibilities.length
+      ? `\n\nThe job's real stated responsibilities (use to decide what to prioritize/emphasize — never to invent matching experience):\n${jobAnalysis.responsibilities.map((r) => `- ${r}`).join("\n")}`
+      : "";
 
   return `You are tailoring a REAL student's resume for ONE specific job. You must use ONLY information that already exists in the source resume text below. This is a hard rule.
 
@@ -41,6 +45,7 @@ ${matchedLines}
 
 Requirements this candidate does NOT currently show evidence for — do not claim these:
 ${missingLines}
+${responsibilitiesBlock}
 
 Source resume text (the candidate's real, unedited resume):
 """
@@ -65,7 +70,7 @@ function looksLikeResume(content) {
  * generation genuinely can't be completed (no master resume, or the model
  * fails twice) — it never falls back to fabricated resume content.
  */
-export async function generateTailoredResume({ job, profile, resumeDoc, fit }) {
+export async function generateTailoredResume({ job, profile, resumeDoc, fit, jobAnalysis }) {
   if (!resumeDoc || !resumeDoc.extractedText) {
     throw new Error(
       "NO_MASTER_RESUME: Upload and index a resume in Document Intelligence before tailoring one for a specific job.",
@@ -77,6 +82,7 @@ export async function generateTailoredResume({ job, profile, resumeDoc, fit }) {
     resumeText: resumeDoc.extractedText,
     matched: fit?.matched ?? [],
     missing: fit?.missing ?? [],
+    jobAnalysis,
   });
 
   let lastError = null;

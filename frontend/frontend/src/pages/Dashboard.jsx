@@ -173,14 +173,26 @@ export default function Dashboard() {
               </h1>
 
               <p className="mt-5 max-w-xl text-lg leading-8 text-[#6B7280]">
-                {loading
-                  ? "Fetching live internships that match your profile…"
-                  : error
-                    ? "Live listings are unavailable right now — open Scout to retry."
-                    : `I found ${jobs.length} live opportunities worth checking today.`}
+                {resumeStatus === "missing"
+                  ? "Upload your resume to unlock real job matching, evidence-based fit scores, and tailored applications."
+                  : loading
+                    ? "Fetching live internships that match your profile…"
+                    : error
+                      ? "Live listings are unavailable right now — open Scout to retry."
+                      : `I found ${jobs.length} live opportunities worth checking today.`}
                 {appliedToday > 0 && ` ${appliedToday} applied today.`}
                 {resumeUpdatedToday && ` Resume updated today.`}
               </p>
+
+              {resumeStatus === "missing" && (
+                <Link
+                  to="/documents"
+                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#8B7CF6] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#7866F0]"
+                >
+                  <FileText size={15} />
+                  Upload Resume
+                </Link>
+              )}
             </div>
 
             <div className="rounded-3xl border border-[#ECE8DF] bg-white/80 p-5 backdrop-blur-md">

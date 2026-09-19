@@ -5,6 +5,7 @@ import { X, Sparkles, Loader2, AlertTriangle, Download, Check, FileText } from "
 import { generateTailoredResume } from "../../services/resumeGenerator";
 import { downloadResumePDF } from "../../lib/pdfGenerator";
 import ResponseRenderer from "../chat/ResponseRenderer";
+import useEscapeKey from "../../hooks/useEscapeKey";
 
 /**
  * The Job-Specific Resume Agent's review modal. Generates a NEW, job-
@@ -14,18 +15,29 @@ import ResponseRenderer from "../chat/ResponseRenderer";
  * application; otherwise it just sits in `tailoredResumes` as a document
  * the user can review/download/delete.
  */
-export default function TailorResumeModal({ opportunity, profile, resumeDoc, fit, onClose, onSaved, onUse }) {
+export default function TailorResumeModal({
+  opportunity,
+  profile,
+  resumeDoc,
+  fit,
+  jobAnalysis,
+  onClose,
+  onSaved,
+  onUse,
+}) {
   const [phase, setPhase] = useState(resumeDoc ? "generating" : "no-resume");
   const [content, setContent] = useState(null);
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
+
+  useEscapeKey(onClose);
 
   useEffect(() => {
     if (!resumeDoc) return;
     let cancelled = false;
     setPhase("generating");
     setError(null);
-    generateTailoredResume({ job: opportunity, profile, resumeDoc, fit })
+    generateTailoredResume({ job: opportunity, profile, resumeDoc, fit, jobAnalysis })
       .then((text) => {
         if (cancelled) return;
         setContent(text);
