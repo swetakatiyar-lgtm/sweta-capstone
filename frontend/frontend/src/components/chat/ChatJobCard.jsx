@@ -34,10 +34,17 @@ export default function ChatJobCard({ job }) {
         )}
         <span
           className={`flex items-center gap-1 font-medium ${
-            job.trust === "high" ? "text-[#3F8F5A]" : job.trust === "medium" ? "text-[#8A6A1F]" : "text-[#B54545]"
+            job.trust === "strong" || job.trust === "good"
+              ? "text-[#3F8F5A]"
+              : job.trust === "limited"
+                ? "text-[#8A6A1F]"
+                : job.trust === "low"
+                  ? "text-[#B54545]"
+                  : "text-[#9CA3AF]"
           }`}
         >
-          <CheckCircle2 size={12} /> Trust: {job.trust}
+          <CheckCircle2 size={12} />
+          {job.trustScore != null ? `${job.trustScore}% Confidence` : "Verification Unavailable"}
         </span>
       </div>
 

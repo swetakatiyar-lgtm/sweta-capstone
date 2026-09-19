@@ -39,15 +39,12 @@ const STATUS_COPY = {
   error: { label: "Couldn't Index", color: "#D64545" },
 };
 
-function guessCategory(filename) {
-  const name = filename.toLowerCase();
-  if (name.includes("resume") || name.includes("cv")) return "Resume";
-  if (name.includes("portfolio")) return "Portfolio";
-  if (name.includes("case stud") || name.includes("case-stud")) return "Case Study";
-  if (name.includes("certificate") || name.includes("cert")) return "Certificate";
-  if (name.includes("cover")) return "Cover Letter";
-  return "Other";
-}
+const REQUIRED_SLOTS = [
+  { category: "Resume", label: "Resume", hint: "Your core resume — the source for every tailored version." },
+  { category: "Portfolio", label: "Portfolio", hint: "Work samples, case studies of past projects, or a portfolio PDF." },
+  { category: "Case Study", label: "Case Study", hint: "A deep dive into one project — problem, approach, outcome." },
+  { category: "Cover Letter", label: "Cover Letter", hint: "A general cover letter template you can tailor per application." },
+];
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -73,77 +70,87 @@ export default function Documents() {
     removeTailoredResume,
   } = useApp();
   const [search, setSearch] = useState("");
-  const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingSlot, setUploadingSlot] = useState(null);
   const [uploadError, setUploadError] = useState(null);
-  const inputRef = useRef(null);
+  const [draggingSlot, setDraggingSlot] = useState(null);
+  const slotInputRefs = useRef({});
 
   const readiness = computeReadiness(documents);
 
   const results = search.trim() ? searchDocuments(documents, search) : null;
   const visibleDocs = results ? results.map((r) => r.document) : documents;
 
-  const handleFiles = useCallback(
-    async (fileList) => {
-      const files = Array.from(fileList);
+  // The document type is determined ONLY by which slot the user uploaded
+  // through — never by inspecting the filename. Re-uploading into a slot
+  // that already has a document replaces that document in place.
+  const handleSlotUpload = useCallback(
+    async (file, category) => {
+      if (!file) return;
+      if (!ACCEPTED_TYPES.includes(file.type) && !/\.(pdf|docx|png|jpe?g)$/i.test(file.name)) {
+        setUploadError(`"${file.name}" isn't a supported file type (PDF, DOCX, PNG, JPG).`);
+        return;
+      }
       setUploadError(null);
-      setUploading(true);
+      setUploadingSlot(category);
 
-      for (const file of files) {
-        if (!ACCEPTED_TYPES.includes(file.type) && !/\.(pdf|docx|png|jpe?g)$/i.test(file.name)) {
-          setUploadError(`"${file.name}" isn't a supported file type (PDF, DOCX, PNG, JPG).`);
-          continue;
-        }
+      const existing = documents.find((d) => d.category === category);
+      const id = existing?.id ?? `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const now = new Date().toISOString();
 
-        const id = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const category = guessCategory(file.name);
-        const now = new Date().toISOString();
+      await putFile(id, file);
 
-        // 1. Store the real file bytes.
-        await putFile(id, file);
+      const metadata = {
+        id,
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        category,
+        uploadedAt: existing?.uploadedAt ?? now,
+        updatedAt: now,
+        size: file.size,
+        status: "indexing",
+        extractedText: "",
+        aiAnalysis: null,
+        fileReference: id,
+      };
 
-        // 2. Add metadata immediately with an "indexing" status so the UI
-        // reflects real progress instead of waiting silently.
-        addDocument({
-          id,
-          name: file.name,
-          type: file.type || "application/octet-stream",
-          category,
-          uploadedAt: now,
-          updatedAt: now,
-          size: file.size,
-          status: "indexing",
-          extractedText: "",
-          aiAnalysis: null,
-          fileReference: id,
-        });
-
-        // 3. Extract real text in the background, then flip to ready/needs-update.
-        extractText(file)
-          .then(({ text, supported }) => {
-            updateDocument(id, {
-              extractedText: text,
-              status: supported && text ? "ready" : "needs-update",
-            });
-          })
-          .catch((err) => {
-            // A genuinely corrupt/unreadable file — without this, the
-            // document would sit on "Indexing…" forever with no way for
-            // the user to know it failed.
-            console.error("Document text extraction failed:", err);
-            updateDocument(id, { status: "error" });
-          });
+      if (existing) {
+        updateDocument(id, metadata);
+      } else {
+        addDocument(metadata);
       }
 
-      setUploading(false);
+      extractText(file)
+        .then(({ text, supported }) => {
+          updateDocument(id, {
+            extractedText: text,
+            status: supported && text ? "ready" : "needs-update",
+          });
+        })
+        .catch((err) => {
+          // A genuinely corrupt/unreadable file — without this, the
+          // document would sit on "Indexing…" forever with no way for
+          // the user to know it failed.
+          console.error("Document text extraction failed:", err);
+          updateDocument(id, { status: "error" });
+        });
+
+      setUploadingSlot(null);
     },
-    [addDocument, updateDocument],
+    [addDocument, updateDocument, documents],
   );
 
-  const handleDrop = (e) => {
+  const handleSlotDrop = (e, category) => {
     e.preventDefault();
-    setDragging(false);
-    if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
+    setDraggingSlot(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleSlotUpload(file, category);
+  };
+
+  // Non-destructive reassignment for legacy/misclassified documents (e.g.
+  // "Other") — always an explicit user action, never automatic, and only
+  // offered when the target slot is currently empty.
+  const handleReassign = (doc, category) => {
+    updateDocument(doc.id, { category, updatedAt: new Date().toISOString() });
   };
 
   const handleDelete = async (doc) => {
@@ -213,52 +220,15 @@ export default function Documents() {
           </div>
         </HoverCard>
 
-        {/* Search + Upload */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={18} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search documents…"
-              className="w-full rounded-full border border-[#ECE8DF] bg-white py-3 pl-11 pr-4 outline-none transition focus:border-[#8B7CF6] focus:ring-4 focus:ring-[#EFE8FF]"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="flex items-center justify-center gap-2 rounded-full bg-[#18181B] px-5 py-3 text-white transition hover:bg-black"
-          >
-            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-            Upload
-          </button>
+        {/* Search */}
+        <div className="relative max-w-xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={18} />
           <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept=".pdf,.docx,.png,.jpg,.jpeg"
-            className="hidden"
-            onChange={(e) => e.target.files?.length && handleFiles(e.target.files)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search documents…"
+            className="w-full rounded-full border border-[#ECE8DF] bg-white py-3 pl-11 pr-4 outline-none transition focus:border-[#8B7CF6] focus:ring-4 focus:ring-[#EFE8FF]"
           />
-        </div>
-
-        {/* Drop zone */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          className={`flex flex-col items-center justify-center gap-2 rounded-[28px] border-2 border-dashed p-8 text-center transition ${
-            dragging ? "border-[#8B7CF6] bg-[#F8F6FF]" : "border-[#ECE8DF] bg-white/60"
-          }`}
-        >
-          <Upload className="text-[#8B7CF6]" size={22} />
-          <p className="text-sm text-[#6B7280]">
-            Drag and drop a PDF, DOCX, PNG, or JPG here, or use Upload above.
-          </p>
         </div>
 
         {uploadError && (
@@ -267,6 +237,122 @@ export default function Documents() {
             {uploadError}
           </div>
         )}
+
+        {/* Four dedicated upload slots — the SLOT clicked/dropped-on determines
+            the document's category. The filename is never inspected. */}
+        <div>
+          <h2 className="text-lg font-semibold text-[#18181B]">Required Documents</h2>
+          <p className="mt-1 text-sm text-[#9CA3AF]">
+            Upload into the section that matches the document — that's what determines its type.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {REQUIRED_SLOTS.map((slot) => {
+              const doc = documents.find((d) => d.category === slot.category);
+              const status = doc ? (STATUS_COPY[doc.status] ?? STATUS_COPY.error) : null;
+              const color = CATEGORY_COLOR[slot.category];
+              const isDragging = draggingSlot === slot.category;
+              const isUploading = uploadingSlot === slot.category;
+
+              return (
+                <HoverCard
+                  key={slot.category}
+                  className={`rounded-[28px] border-2 border-dashed bg-white p-6 shadow-sm transition ${
+                    isDragging ? "border-[#8B7CF6] bg-[#F8F6FF]" : "border-[#ECE8DF]"
+                  }`}
+                >
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDraggingSlot(slot.category);
+                    }}
+                    onDragLeave={() => setDraggingSlot(null)}
+                    onDrop={(e) => handleSlotDrop(e, slot.category)}
+                    className="flex flex-col gap-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                        style={{ background: `${color}18` }}
+                      >
+                        <FileText size={20} color={color} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-[#18181B]">{slot.label}</h3>
+                        <p className="text-xs text-[#9CA3AF]">{slot.hint}</p>
+                      </div>
+                    </div>
+
+                    {doc ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#FAF9F6] p-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-[#18181B]">{doc.name}</p>
+                          <span
+                            className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            style={{ background: `${status.color}18`, color: status.color }}
+                          >
+                            {doc.status === "indexing" ? (
+                              <Loader2 size={11} className="animate-spin" />
+                            ) : doc.status === "ready" ? (
+                              <CheckCircle2 size={11} />
+                            ) : null}
+                            {status.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/documents/${doc.id}`}
+                            className="rounded-full bg-white px-3 py-1.5 text-xs font-medium text-[#6B5AE0] shadow-sm transition hover:bg-[#F8F6FF]"
+                          >
+                            Open
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => slotInputRefs.current[slot.category]?.click()}
+                            className="rounded-full bg-[#18181B] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-black"
+                          >
+                            {isUploading ? <Loader2 size={13} className="animate-spin" /> : "Replace"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#FAF9F6] p-4">
+                        <p className="text-sm text-[#9CA3AF]">No {slot.label.toLowerCase()} uploaded yet.</p>
+                        <button
+                          type="button"
+                          onClick={() => slotInputRefs.current[slot.category]?.click()}
+                          className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#18181B] px-3.5 py-2 text-xs font-medium text-white transition hover:bg-black"
+                        >
+                          {isUploading ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Upload size={13} />
+                          )}
+                          Upload {slot.label}
+                        </button>
+                      </div>
+                    )}
+
+                    <input
+                      ref={(el) => {
+                        slotInputRefs.current[slot.category] = el;
+                      }}
+                      type="file"
+                      accept=".pdf,.docx,.png,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleSlotUpload(file, slot.category);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
+                </HoverCard>
+              );
+            })}
+          </div>
+        </div>
+
+        <h2 className="text-lg font-semibold text-[#18181B]">All Documents</h2>
 
         {/* Document List */}
         {visibleDocs.length === 0 ? (
@@ -343,6 +429,25 @@ export default function Documents() {
                               ) : null}
                               {status.label}
                             </span>
+
+                            {doc.category === "Other" && (
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) handleReassign(doc, e.target.value);
+                                }}
+                                className="rounded-full border border-[#ECE8DF] bg-white px-3 py-1.5 text-xs font-medium text-[#6B7280] outline-none transition hover:border-[#8B7CF6]"
+                              >
+                                <option value="">Use as…</option>
+                                {REQUIRED_SLOTS.filter((s) => !documents.some((d) => d.category === s.category)).map(
+                                  (s) => (
+                                    <option key={s.category} value={s.category}>
+                                      {s.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                            )}
 
                             <button
                               type="button"

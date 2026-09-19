@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, ShieldCheck, Check, ExternalLink, AlertTriangle, Send, Loader2 } from "lucide-react";
 import { categoryStatus } from "../../lib/readiness";
+import { verifyCompany } from "../../services/verify";
 import useEscapeKey from "../../hooks/useEscapeKey";
 
 /**
@@ -27,6 +28,7 @@ export default function ApplyFlowModal({
   const resumeReady = categoryStatus(documents, "Resume") === "ready";
   const portfolioReady = categoryStatus(documents, "Portfolio") === "ready";
   const missingRequired = !resumeReady;
+  const trust = verifyCompany(opportunity);
 
   const [phase, setPhase] = useState(missingRequired ? "gate" : "permission");
   const [confirmReady, setConfirmReady] = useState(false);
@@ -150,7 +152,25 @@ export default function ApplyFlowModal({
                 Role: <span className="font-medium text-[#18181B]">{opportunity.role}</span>
               </p>
 
-              <div className="mt-6 rounded-2xl bg-[#F7F5F1] p-5">
+              <div className="mt-5 flex items-start gap-3 rounded-2xl bg-[#F8F6FF] p-4">
+                <ShieldCheck size={16} className="mt-0.5 shrink-0 text-[#8B7CF6]" />
+                <div>
+                  <p className="text-sm font-medium text-[#18181B]">
+                    {trust.verificationConfidence != null
+                      ? `${trust.verificationConfidence}% Verification Confidence — ${trust.confidenceLabel}`
+                      : "Verification Unavailable"}
+                  </p>
+                  {trust.warnings?.length > 0 && (
+                    <p className="mt-1 text-xs leading-5 text-[#8A6A1F]">⚠ {trust.warnings[0]}</p>
+                  )}
+                  <p className="mt-1 text-xs text-[#9A8F83]">
+                    Review verification details on the opportunity page before applying — this score
+                    reflects checkable signals, not a guarantee.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-[#F7F5F1] p-5">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
                   Career OS will
                 </p>

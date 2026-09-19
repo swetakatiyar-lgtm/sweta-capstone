@@ -113,11 +113,11 @@ export default function DailyBrief() {
       });
     });
 
-  const enriched = jobs.map((job) => ({ ...job, trust: verifyCompany(job).level }));
+  const enriched = jobs.map((job) => ({ ...job, trust: verifyCompany(job).confidenceLevel }));
   const newToday = enriched.filter(
     (j) => j.postedDate && new Date(j.postedDate).toDateString() === new Date().toDateString(),
   );
-  const verified = enriched.filter((j) => j.trust === "high");
+  const verified = enriched.filter((j) => j.trust === "strong");
   const remoteMatches = enriched.filter((j) => j.workMode === "remote");
   const topMatchOpp = [...enriched]
     .map((o) => ({ ...o, match: computeMatch(o, profile) }))
@@ -144,10 +144,10 @@ export default function DailyBrief() {
       icon: ShieldCheck,
       color: "#4FA66B",
       time: "Afternoon",
-      title: verified.length ? `${verified[0].company} ${verified[0].role} posted` : "No high-trust listings yet",
+      title: verified.length ? `${verified[0].company} ${verified[0].role} posted` : "No strongly-verified listings yet",
       desc: verified.length
-        ? "Its application link and details checked out as legitimate."
-        : "Open an opportunity and run a trust check.",
+        ? "Strong verification signals — not a guarantee, but a good sign worth reviewing."
+        : "Open an opportunity to see its verification details.",
       to: verified.length ? `/scout/${verified[0].id}` : "/scout",
     },
     {
@@ -192,7 +192,7 @@ export default function DailyBrief() {
           </h2>
 
           <p className="mt-4 max-w-xl leading-7 text-[#6B7280]">
-            Career OS checked your preferences, verified companies, and found
+            Career OS checked your preferences, ran verification checks on new listings, and found
             the most important actions before tomorrow.
           </p>
 

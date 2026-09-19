@@ -84,8 +84,8 @@ export function matchReasons(opp, profile) {
     reasons.push('Stipend preference matches')
   }
 
-  if (opp.trust === 'high' || opp.trust === 'verified') {
-    reasons.push('Company verified')
+  if (opp.trust === 'strong') {
+    reasons.push('Strong verification signals for this listing')
   }
 
   if (reasons.length === 0) reasons.push('Broadly relevant to your profile')
