@@ -41,6 +41,7 @@ export default function Chat() {
     profile,
     applications,
     documents,
+    tailoredResumes,
     selectedOpportunityId,
     selectedDocumentId,
     pendingChatPrompt,
@@ -193,6 +194,7 @@ export default function Chat() {
         applications,
         document: selectedDocument,
         documents,
+        tailoredResumes,
       });
       setMessages((prev) => [...prev, { role: "assistant", text: reply }]);
     } catch (error) {

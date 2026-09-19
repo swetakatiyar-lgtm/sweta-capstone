@@ -62,7 +62,11 @@ function addDays(date, days) {
 // the context so it's independently testable and so a future real ATS
 // integration (Greenhouse/Lever/etc.) can replace `applicationLink` and the
 // simulated flag without touching component code.
-export function createApplicationRecord(opportunity, profile, { savedBeforeApplying = false } = {}) {
+export function createApplicationRecord(
+  opportunity,
+  profile,
+  { savedBeforeApplying = false, tailoredResumeId = null } = {},
+) {
   const now = new Date().toISOString()
   return {
     id: `app_${opportunity.id}_${Date.now()}`,
@@ -75,6 +79,10 @@ export function createApplicationRecord(opportunity, profile, { savedBeforeApply
     // the user explicitly confirms a transition (see updateApplicationStatus).
     statusHistory: [{ status: 'submitted', at: now }],
     savedBeforeApplying,
+    // Which generated tailored-resume record (if any) the user chose to use
+    // for this application — see AppContext's `tailoredResumes` and
+    // services/resumeGenerator.js. Null means the master resume was used.
+    tailoredResumeId,
     nextFollowUp: addDays(now, 5),
     interviewDate: null,
     applicationLink: opportunity.applyUrl ?? opportunity.applicationLink ?? null,

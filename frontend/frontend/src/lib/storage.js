@@ -28,6 +28,11 @@ export function loadState(fallback) {
       documents: Array.isArray(saved.documents)
         ? saved.documents.filter((d) => d && typeof d === 'object' && 'fileReference' in d)
         : fallback.documents,
+      // Job-specific tailored resumes (additive, derived from the master
+      // resume) — guard the same way in case of corrupted/foreign data.
+      tailoredResumes: Array.isArray(saved.tailoredResumes)
+        ? saved.tailoredResumes.filter((r) => r && typeof r === 'object' && 'jobId' in r)
+        : fallback.tailoredResumes,
     }
   } catch {
     return fallback

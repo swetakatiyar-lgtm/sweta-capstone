@@ -12,6 +12,7 @@ import {
   Loader2,
   AlertTriangle,
   ArrowUpRight,
+  Sparkles,
 } from "lucide-react";
 import SkillLayout from "../components/SkillLayout";
 import HoverCard from "../components/ui/HoverCard";
@@ -20,6 +21,7 @@ import { putFile, getFile, removeFile } from "../services/storage";
 import { extractText } from "../services/parser";
 import { searchDocuments } from "../services/documents";
 import { computeReadiness } from "../lib/readiness";
+import { downloadResumePDF } from "../lib/pdfGenerator";
 
 const CATEGORY_COLOR = {
   Resume: "#4FA66B",
@@ -61,7 +63,15 @@ const ACCEPTED_TYPES = [
 ];
 
 export default function Documents() {
-  const { documents, addDocument, updateDocument, removeDocument } = useApp();
+  const {
+    profile,
+    documents,
+    addDocument,
+    updateDocument,
+    removeDocument,
+    tailoredResumes,
+    removeTailoredResume,
+  } = useApp();
   const [search, setSearch] = useState("");
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -142,6 +152,16 @@ export default function Documents() {
     a.download = doc.name;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadTailored = (record) => {
+    downloadResumePDF({
+      candidateName: profile?.name || "Resume",
+      role: record.role,
+      company: record.company,
+      content: record.content,
+      filename: `Resume — ${record.company} ${record.role}.pdf`,
+    });
   };
 
   return (
@@ -336,6 +356,72 @@ export default function Documents() {
                 );
               })}
             </AnimatePresence>
+          </div>
+        )}
+
+        {/* Tailored Application Documents — additive only. Job-specific
+            derivatives created by the Resume Agent from Opportunity Detail;
+            the master resume above is never modified by these. */}
+        {tailoredResumes.length > 0 && (
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-[#18181B]">
+              <Sparkles size={17} className="text-[#8B7CF6]" />
+              Tailored Application Documents
+            </h2>
+            <p className="mt-1 text-sm text-[#9CA3AF]">
+              Job-specific resume versions generated from your master resume — it stays unchanged above.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              {tailoredResumes.map((record) => (
+                <div
+                  key={record.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#ECE8DF] bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5F2FF]">
+                      <FileText size={19} className="text-[#8B7CF6]" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-[#18181B]">
+                        Resume — {record.company} {record.role}
+                      </h3>
+                      <p className="text-sm text-[#6B7280]">
+                        {record.matchScore != null ? `${record.matchScore}% fit • ` : ""}
+                        {new Date(record.createdAt).toLocaleDateString([], { dateStyle: "medium" })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {record.jobId && (
+                      <Link
+                        to={`/scout/${record.jobId}`}
+                        className="rounded-full bg-[#F8F6FF] px-4 py-2 text-sm font-medium text-[#6B5AE0] transition hover:bg-[#EFE8FF]"
+                      >
+                        Open Opportunity
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadTailored(record)}
+                      aria-label={`Download tailored resume for ${record.company}`}
+                      className="rounded-full bg-[#F8F6FF] p-3 text-[#6B5AE0] transition hover:bg-[#EFE8FF]"
+                    >
+                      <Download size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeTailoredResume(record.id)}
+                      aria-label={`Delete tailored resume for ${record.company}`}
+                      className="rounded-full bg-[#FFF1F1] p-3 text-[#D64545] transition hover:bg-[#FFE4E4]"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

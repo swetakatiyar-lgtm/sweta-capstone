@@ -27,9 +27,11 @@ import { getCachedJob } from "../services/jobs";
 import { askAI } from "../services/ai";
 import { categoryStatus, computeReadiness } from "../lib/readiness";
 import ApplyFlowModal from "../components/agent/ApplyFlowModal";
+import TailorResumeModal from "../components/agent/TailorResumeModal";
 import { getApplicationStatus, canShowTimeline, APPLICATION_STATUS } from "../lib/applicationState";
 import TrustBadge from "../components/TrustBadge";
 import CompanyLogo from "../components/CompanyLogo";
+import { computeApplicationFit } from "../services/matchEngine";
 
 function ChecklistRow({ done, label }) {
   return (
@@ -53,9 +55,13 @@ export default function OpportunityDetail() {
     coverLettersGenerated,
     submitApplication,
     setSelectedOpportunity,
+    tailoredResumes,
+    addTailoredResume,
   } = useApp();
   const opp = getCachedJob(id);
   const [showApproval, setShowApproval] = useState(false);
+  const [showTailor, setShowTailor] = useState(false);
+  const [activeTailoredResumeId, setActiveTailoredResumeId] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSummaryError, setAiSummaryError] = useState(false);
@@ -128,6 +134,15 @@ export default function OpportunityDetail() {
   const readyToApply = appStatus === APPLICATION_STATUS.READY;
   const readiness = computeReadiness(documents).percent;
 
+  // Job-Specific Resume Agent — real, evidence-based fit against the job's
+  // own real description, the user's real Career Profile, and their real
+  // uploaded/analyzed documents. Deterministic: see services/matchEngine.js.
+  const resumeDoc = documents.find((d) => d.category === "Resume" && d.status === "ready");
+  const fit = computeApplicationFit(opp, { profile, documents });
+  const jobTailoredResumes = tailoredResumes.filter((r) => r.jobId === opp.id);
+  const activeTailoredResume =
+    jobTailoredResumes.find((r) => r.id === activeTailoredResumeId) ?? null;
+
   return (
     <SkillLayout
       badge="Opportunity Review"
@@ -193,6 +208,99 @@ export default function OpportunityDetail() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="mt-10">
+            <h3 className="flex items-center gap-2 text-xl font-semibold text-[#18181B]">
+              <Sparkles size={19} className="text-[#8B7CF6]" />
+              Application Fit
+            </h3>
+            <p className="mt-1 text-sm text-[#9CA3AF]">
+              Real, evidence-based comparison against your resume, portfolio, case study and Career
+              Profile — every match is backed by a quote from your own documents.
+            </p>
+
+            {fit.matchScore == null ? (
+              <p className="mt-5 text-sm text-[#9CA3AF]">{fit.summary}</p>
+            ) : (
+              <>
+                <div className="mt-5 flex items-center gap-3">
+                  <span className="text-4xl font-bold text-[#4FA66B]">{fit.matchScore}%</span>
+                  <span className="text-sm text-[#6B7280]">Match</span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {fit.matched.map((m) => (
+                    <span
+                      key={m.skill}
+                      title={m.evidence}
+                      className="flex items-center gap-1.5 rounded-full bg-[#EAF6EC] px-3.5 py-1.5 text-sm font-medium text-[#3F8F5A]"
+                    >
+                      <Check size={13} />
+                      {m.skill}
+                    </span>
+                  ))}
+                  {fit.missing.map((skill) => (
+                    <span
+                      key={skill}
+                      className="flex items-center gap-1.5 rounded-full bg-[#FFF8E8] px-3.5 py-1.5 text-sm font-medium text-[#8A6A1F]"
+                    >
+                      <AlertTriangle size={13} />
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+
+                {fit.matched.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
+                      Why you match
+                    </p>
+                    <div className="mt-3 space-y-2.5">
+                      {fit.matched.map((m) => (
+                        <div key={m.skill} className="rounded-2xl bg-[#F7F5F1] p-4">
+                          <p className="text-sm font-medium text-[#18181B]">{m.skill}</p>
+                          <p className="mt-1 text-sm leading-6 text-[#6B7280]">
+                            "{m.evidence}" — {m.source}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowTailor(true)}
+              className="mt-6 flex items-center gap-2 rounded-full bg-[#8B7CF6] px-6 py-3 font-medium text-white shadow-lg shadow-[#8B7CF6]/25 transition hover:bg-[#7866F0]"
+            >
+              <Sparkles size={16} />
+              Tailor My Resume
+            </motion.button>
+
+            {jobTailoredResumes.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {jobTailoredResumes.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setActiveTailoredResumeId(r.id)}
+                    className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                      activeTailoredResumeId === r.id
+                        ? "border-[#8B7CF6] bg-[#F5F2FF] text-[#6B5AE0]"
+                        : "border-[#ECE8DF] bg-white text-[#18181B] hover:border-[#8B7CF6]/40"
+                    }`}
+                  >
+                    <span>Resume — {r.company} {r.role}</span>
+                    {activeTailoredResumeId === r.id && <Check size={15} />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mt-10">
@@ -396,7 +504,7 @@ export default function OpportunityDetail() {
                 onClick={() => setShowApproval(true)}
                 className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#8B7CF6] py-3.5 font-medium text-white shadow-lg shadow-[#8B7CF6]/25 transition hover:bg-[#7866F0]"
               >
-                Apply with Career OS
+                {activeTailoredResume ? "Apply with Tailored Resume" : "Apply with Career OS"}
                 <ArrowUpRight size={18} />
               </motion.button>
             ) : (
@@ -430,8 +538,26 @@ export default function OpportunityDetail() {
           opportunity={opp}
           documents={documents}
           readiness={readiness}
+          tailoredResume={activeTailoredResume}
           onCancel={() => setShowApproval(false)}
-          onConfirmApplied={() => submitApplication(opp)}
+          onConfirmApplied={() =>
+            submitApplication(opp, { tailoredResumeId: activeTailoredResume?.id ?? null })
+          }
+        />
+      )}
+
+      {showTailor && (
+        <TailorResumeModal
+          opportunity={opp}
+          profile={profile}
+          resumeDoc={resumeDoc}
+          fit={fit}
+          onClose={() => setShowTailor(false)}
+          onSaved={(record) => addTailoredResume(record)}
+          onUse={(record) => {
+            setActiveTailoredResumeId(record.id);
+            setShowTailor(false);
+          }}
         />
       )}
     </SkillLayout>
