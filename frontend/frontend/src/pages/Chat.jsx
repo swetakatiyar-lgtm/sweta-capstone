@@ -55,8 +55,8 @@ export default function Chat() {
   const selectedOpportunity = cachedSelectedOpportunity
     ? {
         ...cachedSelectedOpportunity,
-        trust: selectedOpportunityTrust.level,
-        trustScore: selectedOpportunityTrust.score,
+        trust: selectedOpportunityTrust.confidenceLevel,
+        trustScore: selectedOpportunityTrust.verificationConfidence,
         trustSummary: selectedOpportunityTrust.summary,
       }
     : null;
@@ -158,7 +158,7 @@ export default function Chat() {
         const ranked = results
           .map((job) => {
             const trust = verifyCompany(job);
-            const jobWithTrust = { ...job, trust: trust.level, trustScore: trust.score };
+            const jobWithTrust = { ...job, trust: trust.confidenceLevel, trustScore: trust.verificationConfidence };
             return { ...jobWithTrust, match: computeMatch(jobWithTrust, profile) };
           })
           .sort((a, b) => b.match - a.match);

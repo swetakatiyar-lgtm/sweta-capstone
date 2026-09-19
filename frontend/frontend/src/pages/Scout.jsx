@@ -172,12 +172,12 @@ export default function Scout() {
 
   const enriched = jobs.map((job) => {
     const trust = verifyCompany(job);
-    const jobWithTrust = { ...job, trust: trust.level };
+    const jobWithTrust = { ...job, trust: trust.confidenceLevel };
     return {
       ...jobWithTrust,
       match: computeMatch(jobWithTrust, profile),
       reasons: matchReasons(jobWithTrust, profile),
-      trustScore: trust.score,
+      trustScore: trust.verificationConfidence,
       saved: isJobSaved(job.id),
       // The one place a card's application state is decided — never a local
       // flag, always this single, document-aware source of truth.
@@ -188,7 +188,7 @@ export default function Scout() {
 
   let filtered = enriched;
   if (filter === "new") filtered = filtered.filter((j) => j.isNew);
-  if (filter === "verified") filtered = filtered.filter((j) => j.trust === "high");
+  if (filter === "verified") filtered = filtered.filter((j) => j.trust === "strong");
   if (filter === "applied") filtered = filtered.filter((j) => canShowTimeline(j.appStatus));
   if (filter === "saved") filtered = filtered.filter((j) => j.saved);
 

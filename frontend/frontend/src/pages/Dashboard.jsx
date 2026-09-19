@@ -83,13 +83,13 @@ export default function Dashboard() {
 
   const enriched = jobs.map((job) => {
     const trust = verifyCompany(job);
-    const jobWithTrust = { ...job, trust: trust.level, trustScore: trust.score };
-    return { ...jobWithTrust, match: computeMatch(jobWithTrust, profile), trustLevel: trust.level };
+    const jobWithTrust = { ...job, trust: trust.confidenceLevel, trustScore: trust.verificationConfidence };
+    return { ...jobWithTrust, match: computeMatch(jobWithTrust, profile), trustLevel: trust.confidenceLevel };
   });
   const newTodayCount = jobs.filter(
     (j) => j.postedDate && new Date(j.postedDate).toDateString() === new Date().toDateString(),
   ).length;
-  const verifiedCount = enriched.filter((j) => j.trustLevel === "high").length;
+  const verifiedCount = enriched.filter((j) => j.trustLevel === "strong").length;
   // "Ready to Apply" means the job's real, document-derived application
   // status is `ready` — i.e. the student's actual uploaded documents meet
   // the requirements to apply, not a trust/verification signal.

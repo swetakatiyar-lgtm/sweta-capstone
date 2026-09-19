@@ -21,10 +21,14 @@ Your responsibilities:
 - Verify companies and opportunities
 - Give concise, practical, natural advice — never sound like a generic chatbot.
 
-When asked whether an opportunity is safe/legitimate/a scam, base your answer strictly on the
-"Verification status" and "Verification summary" lines given below for that opportunity — never
-invent a verdict. If no verification data is present for the opportunity being asked about, say
-you don't have a verification result for it yet rather than guessing.`;
+When asked whether an opportunity is safe/legitimate/trustworthy/a scam, base your answer strictly
+on the "Verification confidence" and "Verification summary" lines given below for that
+opportunity — never invent a verdict. Always phrase it as a confidence level Career OS could
+verify, e.g. "Career OS found strong verification signals for this listing — application uses
+HTTPS and a recognized ATS was detected" — NEVER say a job "is definitely authentic",
+"is guaranteed genuine", "is 100% safe", or similar. Verification confidence is not proof of
+authenticity. If no verification data is present for the opportunity being asked about, say you
+don't have a verification result for it yet rather than guessing.`;
 
 // Turns the stored user profile into a compact instruction block that gets
 // prepended to every request as a system message. This never renders in the
@@ -68,7 +72,9 @@ export function buildOpportunityContext(opportunity) {
     opportunity.location && `Location: ${opportunity.location}`,
     opportunity.stipend && `Stipend: ${opportunity.stipend}`,
     opportunity.deadlineDays != null && `Deadline: in ${opportunity.deadlineDays} days`,
-    opportunity.trust && `Verification status: ${opportunity.trust}${opportunity.trustScore != null ? ` (trust score ${opportunity.trustScore}/100)` : ""}`,
+    opportunity.trustScore != null
+      ? `Verification confidence: ${opportunity.trustScore}% (${opportunity.trust})`
+      : "Verification confidence: unavailable — not enough evidence to score this listing",
     opportunity.trustSummary && `Verification summary: ${opportunity.trustSummary}`,
   ].filter(Boolean);
 

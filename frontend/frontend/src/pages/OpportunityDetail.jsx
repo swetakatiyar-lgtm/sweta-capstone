@@ -16,13 +16,13 @@ import {
   ExternalLink,
   Sparkles,
   AlertTriangle,
-  XCircle,
+  HelpCircle,
   CheckCircle2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useApp } from "../context/AppContext";
 import { computeMatch, matchReasons, skillAlignment } from "../lib/match";
-import { verifyCompany } from "../services/verify";
+import { verifyCompany, refreshVerification } from "../services/verify";
 import { getCachedJob } from "../services/jobs";
 import { askAI } from "../services/ai";
 import { categoryStatus, computeReadiness } from "../lib/readiness";
@@ -68,6 +68,12 @@ export default function OpportunityDetail() {
   const [aiSummaryError, setAiSummaryError] = useState(false);
   const [jobAnalysis, setJobAnalysis] = useState(null);
   const [jobAnalysisLoading, setJobAnalysisLoading] = useState(false);
+  const [trust, setTrust] = useState(() => (opp ? verifyCompany(opp) : null));
+
+  useEffect(() => {
+    if (opp) setTrust(verifyCompany(opp));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opp?.id]);
 
   // Let Ready Kit and Chat know which opportunity is "open" — this is
   // what makes "write a cover letter" in Chat work without re-explaining.
@@ -139,8 +145,7 @@ export default function OpportunityDetail() {
     );
   }
 
-  const trust = verifyCompany(opp);
-  const oppWithTrust = { ...opp, trust: trust.level };
+  const oppWithTrust = { ...opp, trust: trust?.confidenceLevel };
   const match = computeMatch(oppWithTrust, profile);
   const reasons = matchReasons(oppWithTrust, profile);
   const { matched, missing } = skillAlignment(opp, profile);
@@ -157,7 +162,7 @@ export default function OpportunityDetail() {
     { label: "Resume", done: categoryStatus(documents, "Resume") === "ready" },
     { label: "Portfolio", done: categoryStatus(documents, "Portfolio") === "ready" },
     { label: "Cover Letter Generated", done: coverLettersGenerated.includes(opp.id) },
-    { label: "Company Verified", done: trust.level === "high" },
+    { label: "Strong verification signals", done: trust?.confidenceLevel === "strong" },
   ];
   const readyToApply = appStatus === APPLICATION_STATUS.READY;
   const readiness = computeReadiness(documents).percent;
@@ -432,43 +437,82 @@ export default function OpportunityDetail() {
           </div>
 
           <div className="mt-10">
-            <h3 className="flex items-center gap-2 text-xl font-semibold text-[#18181B] mb-1">
-              <ShieldCheck size={19} className="text-[#8B7CF6]" />
-              Trust Analysis
-            </h3>
-            <p className="mb-5 text-sm text-[#9CA3AF]">
-              Real analysis of this listing's application link, wording, and contact details — not a
-              fake badge.
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="flex items-center gap-2 text-xl font-semibold text-[#18181B]">
+                <ShieldCheck size={19} className="text-[#8B7CF6]" />
+                Opportunity Verification
+              </h3>
+              {trust?.confidenceLevel !== "unavailable" && (
+                <button
+                  type="button"
+                  onClick={() => setTrust(refreshVerification(opp))}
+                  className="cursor-pointer rounded-full border border-[#ECE8DF] px-4 py-1.5 text-xs font-medium text-[#6B7280] transition hover:border-[#8B7CF6]/40 hover:text-[#18181B]"
+                >
+                  Refresh Verification
+                </button>
+              )}
+            </div>
+            <p className="mb-5 mt-1 text-sm text-[#9CA3AF]">
+              Real checks against this listing's actual source, application link, and description — not
+              a claim that the job is authentic.
             </p>
 
-            {trust.level === "pending" ? (
+            {!trust || trust.confidenceLevel === "unavailable" ? (
               <div className="flex items-start gap-3 rounded-2xl bg-[#F7F5F1] p-5">
                 <AlertTriangle size={18} className="mt-0.5 shrink-0 text-[#9CA3AF]" />
-                <p className="text-sm leading-6 text-[#6B7280]">{trust.summary}</p>
+                <p className="text-sm leading-6 text-[#6B7280]">
+                  {trust?.summary ?? "Verification unavailable — not enough real evidence to check."}
+                </p>
               </div>
             ) : (
               <>
-                <div className="space-y-3">
-                  {[
-                    { label: "Official domain", pass: trust.checks.officialDomain },
-                    { label: "HTTPS secure", pass: trust.checks.httpsSecure },
-                    { label: "Recognized careers/ATS platform", pass: trust.checks.careersPage },
-                    { label: "No suspicious domain patterns", pass: !trust.checks.suspiciousDomain },
-                    { label: "Not a URL shortener", pass: !trust.checks.urlShortener },
-                    { label: "Company name matches domain", pass: trust.checks.companyMatch },
-                    { label: "No scam indicators in listing text", pass: !trust.scamLanguageDetected },
-                  ].map((row) => {
-                    const Icon = row.pass ? CheckCircle2 : XCircle;
-                    const color = row.pass ? "#4FA66B" : "#D64545";
+                <div className="flex items-baseline gap-3">
+                  <span className="text-4xl font-bold text-[#18181B]">{trust.verificationConfidence}%</span>
+                  <div>
+                    <p className="font-medium text-[#18181B]">Verification Confidence</p>
+                    <p className="text-sm text-[#6B7280]">{trust.confidenceLabel}</p>
+                  </div>
+                </div>
+
+                {/* Score breakdown, grouped by category with real per-check points */}
+                <div className="mt-5 space-y-4">
+                  {Object.entries(
+                    trust.checks.reduce((groups, c) => {
+                      (groups[c.category] ??= []).push(c);
+                      return groups;
+                    }, {}),
+                  ).map(([category, checksInCategory]) => {
+                    // Company identity is the one check Career OS can never
+                    // perform (no registry connected) — excluded from the
+                    // category total the same way it's excluded from the
+                    // overall score. Every other check counts toward the
+                    // category max even when unavailable for this job, so
+                    // a missing signal visibly lowers the category's score.
+                    const scorable = checksInCategory.filter((c) => c.id !== "companyIdentity");
+                    const earned = scorable.reduce((s, c) => s + c.points, 0);
+                    const max = scorable.reduce((s, c) => s + c.maxPoints, 0);
                     return (
-                      <div key={row.label} className="flex items-start gap-3 rounded-2xl bg-[#F7F5F1] p-4">
-                        <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                          style={{ background: `${color}18` }}
-                        >
-                          <Icon size={15} color={color} />
+                      <div key={category} className="rounded-2xl border border-[#ECE8DF] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-[#18181B]">{category}</p>
+                          {max > 0 && (
+                            <p className="text-xs font-medium text-[#9A8F83]">
+                              {earned} / {max}
+                            </p>
+                          )}
                         </div>
-                        <p className="pt-1 text-sm leading-6 text-[#18181B]">{row.label}</p>
+                        <div className="mt-2 space-y-2">
+                          {checksInCategory.map((c) => {
+                            const Icon = c.status === "verified" ? CheckCircle2 : c.status === "warning" ? AlertTriangle : HelpCircle;
+                            const color = c.status === "verified" ? "#4FA66B" : c.status === "warning" ? "#D4A017" : "#9CA3AF";
+                            return (
+                              <div key={c.id} className="flex items-start gap-2.5 text-sm">
+                                <Icon size={15} className="mt-0.5 shrink-0" color={color} />
+                                <p className="leading-6 text-[#4B5563]">{c.explanation}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
@@ -478,9 +522,13 @@ export default function OpportunityDetail() {
                   <Sparkles size={17} className="mt-0.5 shrink-0 text-[#8B7CF6]" />
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
-                      AI explanation
+                      How this score works
                     </p>
-                    <p className="mt-1.5 text-sm leading-6 text-[#18181B]">{trust.summary}</p>
+                    <p className="mt-1.5 text-sm leading-6 text-[#18181B]">
+                      Verification Confidence reflects the strength of the signals Career OS could
+                      verify. It is not a probability that the job is authentic and does not guarantee
+                      that the opportunity is genuine.
+                    </p>
                   </div>
                 </div>
               </>

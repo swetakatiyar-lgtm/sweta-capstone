@@ -1,28 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, XCircle, ShieldCheck, Clock } from "lucide-react";
+import { CheckCircle2, AlertTriangle, HelpCircle, ShieldCheck, Clock } from "lucide-react";
 import { verifyCompany } from "../services/verify";
 
-const CHECK_LABELS = {
-  officialDomain: "Official Domain",
-  httpsSecure: "HTTPS",
-  careersPage: "Careers Page",
-  suspiciousDomain: "Suspicious Domain",
-  urlShortener: "URL Shortener",
-  companyMatch: "Company Match",
-};
+const LEVEL_COLOR = { strong: "#4FA66B", good: "#4FA66B", limited: "#D4A017", low: "#D64545" };
 
-// `suspiciousDomain`/`urlShortener` being true is BAD, so the checkmark
-// shown here is inverted — a green check means "not suspicious".
-const INVERTED_CHECKS = new Set(["suspiciousDomain", "urlShortener"]);
-
-const LEVEL_COLOR = { high: "#4FA66B", medium: "#D4A017", low: "#D64545" };
+const STATUS_ICON = { verified: CheckCircle2, warning: AlertTriangle, unavailable: HelpCircle };
+const STATUS_COLOR = { verified: "#4FA66B", warning: "#D4A017", unavailable: "#9CA3AF" };
 
 /**
- * The one real trust badge used everywhere (Scout cards, Opportunity
- * Detail). Shows the calculated score, or "Verification Pending" when
- * there isn't enough data to score — never a fabricated level. Clicking
- * it reveals the real per-check breakdown behind the number.
+ * The one real Opportunity Verification badge used everywhere (Scout
+ * cards, Opportunity Detail). Shows the calculated Verification
+ * Confidence, or "Verification Unavailable" when there wasn't enough real
+ * evidence to score — never a fabricated number. Clicking it reveals the
+ * real per-check breakdown behind it, with the same "not a guarantee"
+ * language used everywhere else in the app.
  */
 export default function TrustBadge({ job, className = "" }) {
   const trust = verifyCompany(job);
@@ -38,16 +30,18 @@ export default function TrustBadge({ job, className = "" }) {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  if (trust.level === "pending") {
+  if (trust.confidenceLevel === "unavailable" || trust.verificationConfidence == null) {
     return (
       <span
         className={`flex items-center gap-1.5 rounded-full bg-[#F1EEE8] px-3 py-1 text-xs font-medium text-[#9CA3AF] ${className}`}
       >
         <Clock size={12} />
-        Verification Pending
+        Verification Unavailable
       </span>
     );
   }
+
+  const color = LEVEL_COLOR[trust.confidenceLevel] ?? "#9CA3AF";
 
   return (
     <div className="relative inline-block" ref={ref}>
@@ -62,10 +56,10 @@ export default function TrustBadge({ job, className = "" }) {
         whileTap={{ scale: 0.96 }}
         transition={{ duration: 0.15 }}
         className={`flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${className}`}
-        style={{ background: `${LEVEL_COLOR[trust.level]}18`, color: LEVEL_COLOR[trust.level] }}
+        style={{ background: `${color}18`, color }}
       >
         <ShieldCheck size={12} />
-        {trust.score} Trust
+        {trust.verificationConfidence}% Confidence
       </motion.button>
 
       <AnimatePresence>
@@ -76,25 +70,27 @@ export default function TrustBadge({ job, className = "" }) {
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ duration: 0.16 }}
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-full z-30 mt-2 w-72 rounded-2xl border border-[#ECE8DF] bg-white p-5 text-left shadow-xl"
+            className="absolute right-0 top-full z-30 mt-2 w-80 rounded-2xl border border-[#ECE8DF] bg-white p-5 text-left shadow-xl"
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">Trust Details</p>
-            <div className="mt-3 space-y-2">
-              {Object.entries(trust.checks).map(([key, value]) => {
-                const passed = INVERTED_CHECKS.has(key) ? !value : value;
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
+              Verification Confidence — {trust.confidenceLabel}
+            </p>
+            <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+              {trust.checks.map((c) => {
+                const Icon = STATUS_ICON[c.status] ?? HelpCircle;
+                const iconColor = STATUS_COLOR[c.status] ?? "#9CA3AF";
                 return (
-                  <div key={key} className="flex items-center justify-between text-sm">
-                    <span className="text-[#4B5563]">{CHECK_LABELS[key]}</span>
-                    {passed ? (
-                      <CheckCircle2 size={15} className="text-[#4FA66B]" />
-                    ) : (
-                      <XCircle size={15} className="text-[#D64545]" />
-                    )}
+                  <div key={c.id} className="flex items-start justify-between gap-3 text-sm">
+                    <span className="text-[#4B5563]">{c.name}</span>
+                    <Icon size={15} className="mt-0.5 shrink-0" style={{ color: iconColor }} />
                   </div>
                 );
               })}
             </div>
-            <p className="mt-4 text-xs leading-5 text-[#6B7280]">{trust.summary}</p>
+            <p className="mt-4 text-xs leading-5 text-[#6B7280]">
+              This score reflects the verification signals Career OS was able to confirm. It does not
+              guarantee that the opportunity is genuine.
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
