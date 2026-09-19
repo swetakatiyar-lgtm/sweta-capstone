@@ -32,6 +32,7 @@ import { getApplicationStatus, canShowTimeline, APPLICATION_STATUS } from "../li
 import TrustBadge from "../components/TrustBadge";
 import CompanyLogo from "../components/CompanyLogo";
 import { computeApplicationFit } from "../services/matchEngine";
+import { analyzeJobRequirements } from "../services/jobAnalyzer";
 
 function ChecklistRow({ done, label }) {
   return (
@@ -65,6 +66,8 @@ export default function OpportunityDetail() {
   const [aiSummary, setAiSummary] = useState(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSummaryError, setAiSummaryError] = useState(false);
+  const [jobAnalysis, setJobAnalysis] = useState(null);
+  const [jobAnalysisLoading, setJobAnalysisLoading] = useState(false);
 
   // Let Ready Kit and Chat know which opportunity is "open" — this is
   // what makes "write a cover letter" in Chat work without re-explaining.
@@ -90,6 +93,31 @@ export default function OpportunityDetail() {
       })
       .finally(() => {
         if (!cancelled) setAiSummaryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opp?.id]);
+
+  // Real analysis of the job's own description (responsibilities,
+  // qualifications, preferred skills) — cached per job id in
+  // services/jobAnalyzer.js so re-rendering this page never re-calls Groq
+  // for a job already analyzed this session.
+  useEffect(() => {
+    if (!opp) return;
+    let cancelled = false;
+    setJobAnalysisLoading(true);
+    analyzeJobRequirements(opp)
+      .then((result) => {
+        if (!cancelled) setJobAnalysis(result);
+      })
+      .catch((err) => {
+        console.error("Job requirement analysis failed:", err);
+        if (!cancelled) setJobAnalysis({ available: false });
+      })
+      .finally(() => {
+        if (!cancelled) setJobAnalysisLoading(false);
       });
     return () => {
       cancelled = true;
@@ -271,6 +299,59 @@ export default function OpportunityDetail() {
               </>
             )}
 
+            {jobAnalysisLoading ? (
+              <p className="mt-5 text-sm text-[#9CA3AF]">Analyzing job requirements…</p>
+            ) : jobAnalysis?.available ? (
+              <div className="mt-5 space-y-4">
+                {jobAnalysis.responsibilities.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
+                      Responsibilities (from the real listing)
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[#4B5563]">
+                      {jobAnalysis.responsibilities.map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {jobAnalysis.qualifications.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
+                      Stated qualifications
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[#4B5563]">
+                      {jobAnalysis.qualifications.map((q) => (
+                        <li key={q}>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {jobAnalysis.preferredSkills.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
+                      Nice-to-have skills
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {jobAnalysis.preferredSkills.map((s) => (
+                        <span
+                          key={s}
+                          className="rounded-full border border-dashed border-[#E8E2FF] px-3 py-1 text-xs text-[#6B5AE0]"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : jobAnalysis && !jobAnalysis.available ? (
+              <p className="mt-5 text-sm text-[#9CA3AF]">
+                Couldn't extract a full requirements breakdown from this listing's description —
+                showing the skill-based match above instead.
+              </p>
+            ) : null}
+
             <motion.button
               type="button"
               whileHover={{ scale: 1.02 }}
@@ -283,22 +364,33 @@ export default function OpportunityDetail() {
             </motion.button>
 
             {jobTailoredResumes.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {jobTailoredResumes.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setActiveTailoredResumeId(r.id)}
-                    className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                      activeTailoredResumeId === r.id
-                        ? "border-[#8B7CF6] bg-[#F5F2FF] text-[#6B5AE0]"
-                        : "border-[#ECE8DF] bg-white text-[#18181B] hover:border-[#8B7CF6]/40"
-                    }`}
-                  >
-                    <span>Resume — {r.company} {r.role}</span>
-                    {activeTailoredResumeId === r.id && <Check size={15} />}
-                  </button>
-                ))}
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#9A8F83]">
+                  {jobTailoredResumes.length === 1 ? "Tailored resume for this job" : "Tailored versions for this job — pick one to use"}
+                </p>
+                <div className="space-y-2">
+                  {jobTailoredResumes.map((r) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setActiveTailoredResumeId(r.id)}
+                      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                        activeTailoredResumeId === r.id
+                          ? "border-[#8B7CF6] bg-[#F5F2FF] text-[#6B5AE0]"
+                          : "border-[#ECE8DF] bg-white text-[#18181B] hover:border-[#8B7CF6]/40"
+                      }`}
+                    >
+                      <span>
+                        Resume — {r.company} {r.role}
+                        <span className="ml-2 text-xs text-[#9CA3AF]">
+                          {new Date(r.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+                          {r.matchScore != null && ` · ${r.matchScore}% fit`}
+                        </span>
+                      </span>
+                      {activeTailoredResumeId === r.id && <Check size={15} />}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -552,6 +644,7 @@ export default function OpportunityDetail() {
           profile={profile}
           resumeDoc={resumeDoc}
           fit={fit}
+          jobAnalysis={jobAnalysis}
           onClose={() => setShowTailor(false)}
           onSaved={(record) => addTailoredResume(record)}
           onUse={(record) => {

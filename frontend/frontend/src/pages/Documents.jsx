@@ -119,12 +119,20 @@ export default function Documents() {
         });
 
         // 3. Extract real text in the background, then flip to ready/needs-update.
-        extractText(file).then(({ text, supported }) => {
-          updateDocument(id, {
-            extractedText: text,
-            status: supported && text ? "ready" : "needs-update",
+        extractText(file)
+          .then(({ text, supported }) => {
+            updateDocument(id, {
+              extractedText: text,
+              status: supported && text ? "ready" : "needs-update",
+            });
+          })
+          .catch((err) => {
+            // A genuinely corrupt/unreadable file — without this, the
+            // document would sit on "Indexing…" forever with no way for
+            // the user to know it failed.
+            console.error("Document text extraction failed:", err);
+            updateDocument(id, { status: "error" });
           });
-        });
       }
 
       setUploading(false);
@@ -300,7 +308,17 @@ export default function Documents() {
                             </div>
 
                             <div>
-                              <h3 className="text-lg font-semibold text-[#18181B]">{doc.name}</h3>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-semibold text-[#18181B]">{doc.name}</h3>
+                                {doc.category === "Resume" && (
+                                  <span
+                                    title="Your original source document — Career OS never modifies it. Job-specific copies appear below under Tailored Application Documents."
+                                    className="rounded-full bg-[#F1EEE8] px-2.5 py-0.5 text-xs font-medium text-[#9A8F83]"
+                                  >
+                                    Master
+                                  </span>
+                                )}
+                              </div>
                               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[#6B7280]">
                                 <span>{doc.category}</span>
                                 <span>•</span>

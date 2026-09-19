@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, ShieldCheck, Check, ExternalLink, AlertTriangle, Send, Loader2 } from "lucide-react";
 import { categoryStatus } from "../../lib/readiness";
+import useEscapeKey from "../../hooks/useEscapeKey";
 
 /**
  * The one real apply flow. Every "Apply" action in the app goes through
@@ -32,6 +33,11 @@ export default function ApplyFlowModal({
   const timerRef = useRef(null);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  // Same rule as the backdrop click below: Escape can't dismiss the modal
+  // mid-"applying", since that's the one phase where the user has a real
+  // external tab open and a pending decision to make.
+  useEscapeKey(onCancel, phase !== "applying");
 
   function handleApplyNow() {
     // Real navigation — this is the actual official application URL, opened
@@ -195,7 +201,7 @@ export default function ApplyFlowModal({
                   onClick={handleApplyNow}
                   className="flex-1 cursor-pointer rounded-full bg-[#8B7CF6] py-3 font-medium text-white shadow-lg shadow-[#8B7CF6]/25 transition hover:bg-[#7866F0]"
                 >
-                  Apply Now
+                  Open Official Application
                 </motion.button>
               </div>
             </>

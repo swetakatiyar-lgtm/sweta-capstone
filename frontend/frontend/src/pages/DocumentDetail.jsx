@@ -211,6 +211,7 @@ export default function DocumentDetail() {
                   type="button"
                   onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                   disabled={pageNumber <= 1}
+                  aria-label="Previous page"
                   className="rounded-full p-1.5 text-[#6B7280] transition hover:bg-[#F5F2FF] disabled:opacity-30"
                 >
                   <ChevronLeft size={16} />
@@ -222,6 +223,7 @@ export default function DocumentDetail() {
                   type="button"
                   onClick={() => setPageNumber((p) => Math.min(numPages ?? p, p + 1))}
                   disabled={!numPages || pageNumber >= numPages}
+                  aria-label="Next page"
                   className="rounded-full p-1.5 text-[#6B7280] transition hover:bg-[#F5F2FF] disabled:opacity-30"
                 >
                   <ChevronRight size={16} />
@@ -230,6 +232,7 @@ export default function DocumentDetail() {
                 <button
                   type="button"
                   onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+                  aria-label="Zoom out"
                   className="rounded-full p-1.5 text-[#6B7280] transition hover:bg-[#F5F2FF]"
                 >
                   <ZoomOut size={16} />
@@ -238,6 +241,7 @@ export default function DocumentDetail() {
                 <button
                   type="button"
                   onClick={() => setScale((s) => Math.min(2.5, s + 0.2))}
+                  aria-label="Zoom in"
                   className="rounded-full p-1.5 text-[#6B7280] transition hover:bg-[#F5F2FF]"
                 >
                   <ZoomIn size={16} />

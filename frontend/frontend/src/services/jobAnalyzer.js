@@ -57,7 +57,14 @@ function buildMessages(job) {
  * `available: false` is the honest "Analysis unavailable" state — the
  * function never fills those arrays with fabricated content on failure.
  */
-export async function analyzeJobRequirements(job) {
+// Keyed by real job id — re-opening the same Opportunity Detail page (or
+// re-rendering it) must never re-call Groq for a job already analyzed in
+// this session. Cleared implicitly on a full page reload, which is fine:
+// a fresh session re-analyzing is still "not repeatedly analyzing the same
+// job unnecessarily" within a single visit.
+const analysisCache = new Map();
+
+async function runAnalysis(job) {
   const requiredSkills = extractJobRequirements(job);
 
   if (!job.description || job.description.trim().length < 40) {
@@ -87,4 +94,18 @@ export async function analyzeJobRequirements(job) {
   // a fabricated breakdown. The deterministic requiredSkills list (real,
   // regex-based) is still returned so the rest of Application Fit works.
   return { requiredSkills, preferredSkills: [], responsibilities: [], qualifications: [], available: false };
+}
+
+export async function analyzeJobRequirements(job) {
+  if (analysisCache.has(job.id)) return analysisCache.get(job.id);
+  const promise = runAnalysis(job);
+  analysisCache.set(job.id, promise);
+  try {
+    const result = await promise;
+    analysisCache.set(job.id, Promise.resolve(result));
+    return result;
+  } catch (err) {
+    analysisCache.delete(job.id); // let a genuine failure be retried on next open
+    throw err;
+  }
 }
