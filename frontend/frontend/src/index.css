@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Satoshi", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-cream: #f8f7f4;
+  --color-ivory: #fbfaf7;
+  --color-surface: #ffffff;
+  --color-ink: #1c1a17;
+  --color-ink-soft: #55504a;
+  --color-ink-faint: #8a8478;
+  --color-hairline: #e7e3da;
+  --color-solid-ink: #1c1a17;
+
+  --color-lavender: #8b7cf6;
+  --color-lavender-soft: #ece9fd;
+  --color-sage: #7fa98f;
+  --color-sage-soft: #e6efe9;
+  --color-gold: #e8b95f;
+  --color-gold-soft: #fbf1de;
+
+  --radius-hero: 36px;
+  --radius-card: 32px;
+  --radius-card-sm: 24px;
+  --radius-btn: 18px;
+  --radius-chip: 999px;
+
+  --animate-reveal: reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-count: count 0.3s ease both;
+
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-cream: #17161a;
+  --color-ivory: #1d1c21;
+  --color-surface: #221f26;
+  --color-ink: #f2f0eb;
+  --color-ink-soft: #b9b4ac;
+  --color-ink-faint: #837e77;
+  --color-hairline: #333039;
+  --color-lavender-soft: #2c2740;
+  --color-sage-soft: #1e2b23;
+  --color-gold-soft: #332912;
+}
+
+@layer base {
+  html {
+    background: var(--color-cream);
+    transition: background-color 0.3s ease;
+  }
+
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-lavender-soft);
+    color: var(--color-ink);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-hairline) transparent;
+  }
+}
+
+@layer utilities {
+  .grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.025;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
