@@ -28,6 +28,12 @@ const defaultState = {
   // Which uploaded document is "open" for Chat context (Document
   // Intelligence's "Improve with Career OS" sets this before navigating).
   selectedDocumentId: null,
+  // Job-specific tailored resumes (see services/resumeGenerator.js). These
+  // are DERIVATIVES of the real master resume in `documents` — additive
+  // only, never replace or overwrite the master resume record.
+  // Shape: { id, jobId, company, role, sourceResumeId, matchScore, content,
+  //          missingRequirements, createdAt }
+  tailoredResumes: [],
 }
 
 function timeNow() {
@@ -169,9 +175,9 @@ export function AppProvider({ children }) {
   // user has explicitly approved the agent's approval modal. Never invoked
   // automatically.
   const submitApplication = useCallback(
-    (job) => {
+    (job, { tailoredResumeId = null } = {}) => {
       const savedBeforeApplying = state.savedJobIds.includes(job.id)
-      const record = createApplicationRecord(job, state.profile, { savedBeforeApplying })
+      const record = createApplicationRecord(job, state.profile, { savedBeforeApplying, tailoredResumeId })
       setState((prev) => ({ ...prev, applications: [record, ...prev.applications] }))
       addActivity(`Applied to ${job.company} · ${job.role}`, 'sage')
       return record
@@ -271,6 +277,23 @@ export function AppProvider({ children }) {
     setState((prev) => (prev.selectedDocumentId === id ? prev : { ...prev, selectedDocumentId: id }))
   }, [])
 
+  // Additive, job-specific derivatives of the real master resume — never
+  // touches `documents`/the master resume record itself.
+  const addTailoredResume = useCallback(
+    (record) => {
+      setState((prev) => ({ ...prev, tailoredResumes: [record, ...prev.tailoredResumes] }))
+      addActivity(`Tailored resume created for ${record.company} · ${record.role}`, 'lavender')
+    },
+    [addActivity],
+  )
+
+  const removeTailoredResume = useCallback((id) => {
+    setState((prev) => ({
+      ...prev,
+      tailoredResumes: prev.tailoredResumes.filter((r) => r.id !== id),
+    }))
+  }, [])
+
   const value = useMemo(
     () => ({
       ...state,
@@ -297,6 +320,8 @@ export function AppProvider({ children }) {
       markCoverLetterGenerated,
       setPendingChatPrompt,
       clearPendingChatPrompt,
+      addTailoredResume,
+      removeTailoredResume,
     }),
     [
       state,
@@ -323,6 +348,8 @@ export function AppProvider({ children }) {
       markCoverLetterGenerated,
       setPendingChatPrompt,
       clearPendingChatPrompt,
+      addTailoredResume,
+      removeTailoredResume,
     ],
   )
 

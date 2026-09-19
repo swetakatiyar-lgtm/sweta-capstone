@@ -10,6 +10,12 @@ export const defaultProfile = {
   education: '',
   skills: [],
   preferredRole: '',
+  // Multi-select preferred roles from Onboarding (mirrors the Skills
+  // multi-select pattern). `preferredRole` (singular) is kept alongside it
+  // — set to the first selected role — for existing single-role consumers
+  // (Scout's default search query, matching, AI context) that haven't been
+  // migrated to read the array yet.
+  preferredRoles: [],
   preferredLocations: [],
   minStipend: 0,
   workMode: 'remote', // 'remote' | 'hybrid' | 'onsite'

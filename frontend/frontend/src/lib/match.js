@@ -23,6 +23,21 @@ export function skillAlignment(opp, profile) {
   return { matched, missing, percent }
 }
 
+// Multi-role aware — `preferredRoles` (the real multi-select from
+// Onboarding/Settings) is checked in full; `preferredRole` (singular) is
+// only a fallback for profiles saved before that field existed.
+function preferredRoleList(profile) {
+  if (profile.preferredRoles?.length) return profile.preferredRoles
+  return profile.preferredRole ? [profile.preferredRole] : []
+}
+
+function matchingRole(opp, profile) {
+  return preferredRoleList(profile).find((role) => {
+    const words = normalize(role).split(/\s+/).filter(Boolean)
+    return words.some((w) => normalize(opp.role).includes(w))
+  })
+}
+
 function locationMatches(opp, profile) {
   if (profile.workMode && opp.workMode === profile.workMode) return true
   const locations = (profile.preferredLocations ?? []).map(normalize)
@@ -34,9 +49,7 @@ export function computeMatch(opp, profile) {
   const { percent: skillPercent } = skillAlignment(opp, profile)
   let score = (opp.baseMatch ?? 70) * 0.35 + skillPercent * 0.45
 
-  const roleWords = normalize(profile.preferredRole).split(/\s+/).filter(Boolean)
-  const roleHit = roleWords.some((w) => normalize(opp.role).includes(w))
-  score += roleHit ? 8 : -6
+  score += matchingRole(opp, profile) ? 8 : -6
 
   score += locationMatches(opp, profile) ? 6 : -4
 
@@ -56,9 +69,9 @@ export function matchReasons(opp, profile) {
 
   matched.forEach((skill) => reasons.push(`${skill} matches`))
 
-  const roleWords = normalize(profile.preferredRole).split(/\s+/).filter(Boolean)
-  if (roleWords.some((w) => normalize(opp.role).includes(w))) {
-    reasons.push(`Role matches your "${profile.preferredRole}" preference`)
+  const matchedRole = matchingRole(opp, profile)
+  if (matchedRole) {
+    reasons.push(`Role matches your "${matchedRole}" preference`)
   }
 
   if (locationMatches(opp, profile)) {

@@ -15,7 +15,14 @@ import { categoryStatus } from "../../lib/readiness";
  * shows "Completing Application…" then the real confirmation question) ->
  * submitted (done). Nothing ever skips a state.
  */
-export default function ApplyFlowModal({ opportunity, documents, readiness, onCancel, onConfirmApplied }) {
+export default function ApplyFlowModal({
+  opportunity,
+  documents,
+  readiness,
+  onCancel,
+  onConfirmApplied,
+  tailoredResume = null,
+}) {
   const resumeReady = categoryStatus(documents, "Resume") === "ready";
   const portfolioReady = categoryStatus(documents, "Portfolio") === "ready";
   const missingRequired = !resumeReady;
@@ -144,8 +151,16 @@ export default function ApplyFlowModal({ opportunity, documents, readiness, onCa
                 <ul className="space-y-2.5 text-sm text-[#3F3D3A]">
                   <li className="flex items-start gap-2.5">
                     <Check size={15} className="mt-0.5 shrink-0 text-[#4FA66B]" />
-                    Open the official application
+                    {tailoredResume
+                      ? `Use your tailored resume for this role`
+                      : "Open the official application"}
                   </li>
+                  {tailoredResume && (
+                    <li className="flex items-start gap-2.5">
+                      <Check size={15} className="mt-0.5 shrink-0 text-[#4FA66B]" />
+                      Open the official application
+                    </li>
+                  )}
                   <li className="flex items-start gap-2.5">
                     <Check size={15} className="mt-0.5 shrink-0 text-[#4FA66B]" />
                     Track this application

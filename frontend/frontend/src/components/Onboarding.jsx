@@ -252,33 +252,32 @@ function SkillPicker({ selected, onAdd, onRemove }) {
   );
 }
 
-function RolePicker({ value, onSelect, onClear }) {
+function RolePicker({ selected, onAdd, onRemove }) {
   const [otherOpen, setOtherOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
 
-  const isCustom = value && !POPULAR_ROLES.some((r) => r.toLowerCase() === value.toLowerCase());
+  const customRoles = selected.filter(
+    (r) => !POPULAR_ROLES.some((p) => p.toLowerCase() === r.toLowerCase()),
+  );
 
   useEffect(() => {
     if (otherOpen) inputRef.current?.focus();
   }, [otherOpen]);
 
-  const pick = (role) => {
-    if (value && value.toLowerCase() === role.toLowerCase()) {
-      onClear();
-    } else {
-      onSelect(role);
-      setOtherOpen(false);
-    }
+  const toggle = (role) => {
+    const isSelected = selected.some((r) => r.toLowerCase() === role.toLowerCase());
+    if (isSelected) onRemove(role);
+    else onAdd(role);
   };
 
   const commitCustom = () => {
     const clean = draft.trim();
     if (clean) {
-      onSelect(clean);
+      onAdd(clean);
       setDraft("");
-      setOtherOpen(false);
     }
+    setOtherOpen(false);
   };
 
   return (
@@ -292,8 +291,8 @@ function RolePicker({ value, onSelect, onClear }) {
           <SkillChip
             key={role}
             label={role}
-            selected={value?.toLowerCase() === role.toLowerCase()}
-            onClick={() => pick(role)}
+            selected={selected.some((r) => r.toLowerCase() === role.toLowerCase())}
+            onClick={() => toggle(role)}
           />
         ))}
 
@@ -301,12 +300,7 @@ function RolePicker({ value, onSelect, onClear }) {
           type="button"
           onClick={() => setOtherOpen((o) => !o)}
           whileTap={{ scale: 0.97 }}
-          aria-pressed={isCustom}
-          className={`flex items-center gap-2 rounded-2xl border border-dashed px-4 py-3 text-[15px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B7CF6] ${
-            isCustom
-              ? "border-[#8B7CF6] text-[#6B5AE0]"
-              : "border-[#ECE8DF] bg-white text-[#6B7280] hover:border-[#8B7CF6]/40 hover:text-[#18181B]"
-          }`}
+          className="flex items-center gap-2 rounded-2xl border border-dashed border-[#ECE8DF] bg-white px-4 py-3 text-[15px] font-medium text-[#6B7280] transition-colors hover:border-[#8B7CF6]/40 hover:text-[#18181B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B7CF6]"
         >
           <Plus size={15} />
           Other
@@ -330,6 +324,8 @@ function RolePicker({ value, onSelect, onClear }) {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   commitCustom();
+                } else if (e.key === "Backspace" && draft === "" && customRoles.length > 0) {
+                  onRemove(customRoles[customRoles.length - 1]);
                 }
               }}
               placeholder="Type a role and press Enter"
@@ -341,33 +337,38 @@ function RolePicker({ value, onSelect, onClear }) {
 
       <div className="mt-8">
         <p className="mb-3 text-sm font-medium uppercase tracking-wide text-[#9A8F83]">
-          Selected Role
+          Selected ({selected.length})
         </p>
 
-        <AnimatePresence mode="wait">
-          {value ? (
-            <motion.div
-              key={value}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="inline-flex items-center gap-3 rounded-2xl bg-[#F6F2FF] px-6 py-4 text-lg font-semibold text-[#6B5AE0]"
-            >
-              {value}
-              <button
-                type="button"
-                onClick={onClear}
-                aria-label={`Remove ${value}`}
-                className="text-[#6B5AE0]/60 hover:text-[#6B5AE0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B7CF6]"
-              >
-                <X size={16} />
-              </button>
-            </motion.div>
-          ) : (
-            <p className="text-sm text-[#9CA3AF]">Pick a role above to get started.</p>
-          )}
-        </AnimatePresence>
+        {selected.length === 0 ? (
+          <p className="text-sm text-[#9CA3AF]">Pick a role above to get started.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <AnimatePresence>
+              {selected.map((role) => (
+                <motion.span
+                  key={role}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex items-center gap-2 rounded-full bg-[#F6F2FF] px-4 py-2 text-sm font-medium text-[#6B5AE0]"
+                >
+                  {role}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(role)}
+                    aria-label={`Remove ${role}`}
+                    className="text-[#6B5AE0]/60 hover:text-[#6B5AE0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8B7CF6]"
+                  >
+                    <X size={13} />
+                  </button>
+                </motion.span>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -550,7 +551,7 @@ export default function Onboarding() {
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState({
     name: "",
-    preferredRole: "",
+    preferredRoles: [],
     skills: [],
     preferredLocations: [],
     workMode: "",
@@ -562,7 +563,7 @@ export default function Onboarding() {
 
   const canAdvance = {
     name: form.name.trim().length > 0,
-    role: form.preferredRole.trim().length > 0,
+    role: form.preferredRoles.length > 0,
     skills: form.skills.length > 0,
     location: form.preferredLocations.length > 0,
     stipend: form.minStipend > 0,
@@ -575,7 +576,12 @@ export default function Onboarding() {
   const finish = () => {
     completeOnboarding({
       name: form.name.trim(),
-      preferredRole: form.preferredRole.trim(),
+      // `preferredRole` (singular) is kept in sync for existing consumers
+      // (Scout's default search query, matching, AI context) that only
+      // know about a single role; `preferredRoles` is the real multi-select
+      // list going forward.
+      preferredRole: form.preferredRoles[0] ?? "",
+      preferredRoles: form.preferredRoles,
       skills: form.skills,
       preferredLocations: form.preferredLocations,
       minStipend: form.minStipend,
@@ -626,9 +632,20 @@ export default function Onboarding() {
               subtitle="This tunes every match Career OS finds for you."
             >
               <RolePicker
-                value={form.preferredRole}
-                onSelect={(role) => setForm((f) => ({ ...f, preferredRole: role }))}
-                onClear={() => setForm((f) => ({ ...f, preferredRole: "" }))}
+                selected={form.preferredRoles}
+                onAdd={(role) =>
+                  setForm((f) =>
+                    f.preferredRoles.some((r) => r.toLowerCase() === role.toLowerCase())
+                      ? f
+                      : { ...f, preferredRoles: [...f.preferredRoles, role] },
+                  )
+                }
+                onRemove={(role) =>
+                  setForm((f) => ({
+                    ...f,
+                    preferredRoles: f.preferredRoles.filter((r) => r !== role),
+                  }))
+                }
               />
             </StepShell>
           )}
@@ -714,7 +731,7 @@ export default function Onboarding() {
             >
               <div className="max-w-md space-y-3">
                 {[
-                  ["Role", form.preferredRole],
+                  ["Roles", form.preferredRoles.join(", ") || "—"],
                   ["Skills", form.skills.join(", ") || "—"],
                   ["Locations", form.preferredLocations.join(", ") || "—"],
                   ["Min. stipend", `₹${form.minStipend.toLocaleString("en-IN")}/mo`],

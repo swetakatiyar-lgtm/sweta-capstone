@@ -38,7 +38,9 @@ export function buildProfileContext(profile) {
     profile.role && `Current status: ${profile.role}`,
     profile.education && `Education: ${profile.education}`,
     profile.skills?.length && `Skills: ${profile.skills.join(", ")}`,
-    profile.preferredRole && `Preferred internship role: ${profile.preferredRole}`,
+    profile.preferredRoles?.length
+      ? `Preferred internship roles: ${profile.preferredRoles.join(", ")}`
+      : profile.preferredRole && `Preferred internship role: ${profile.preferredRole}`,
     profile.preferredLocations?.length &&
       `Preferred locations: ${profile.preferredLocations.join(", ")}`,
     typeof profile.minStipend === "number" &&
@@ -78,7 +80,7 @@ export function buildOpportunityContext(opportunity) {
 // Agent Mode's memory of what it has already done — this is what lets Chat
 // answer "have I applied to Google?" or "prep me for the interview" without
 // the user repeating the application history.
-export function buildApplicationHistoryContext(applications) {
+export function buildApplicationHistoryContext(applications, tailoredResumes = []) {
   if (!applications?.length) return "";
 
   const lines = applications.map((a) => {
@@ -86,6 +88,12 @@ export function buildApplicationHistoryContext(applications) {
     const parts = [`${a.company} (${a.role}): status "${a.status}", applied ${applied}`];
     if (a.nextFollowUp) parts.push(`next follow-up ${new Date(a.nextFollowUp).toLocaleDateString([], { dateStyle: "medium" })}`);
     if (a.interviewDate) parts.push(`interview ${new Date(a.interviewDate).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`);
+    if (a.tailoredResumeId) {
+      const tailored = tailoredResumes.find((r) => r.id === a.tailoredResumeId);
+      parts.push(tailored ? `used a tailored resume generated for ${tailored.company} (${tailored.role})` : "used a tailored resume");
+    } else {
+      parts.push("used the master resume");
+    }
     return parts.join(", ");
   });
 
@@ -98,7 +106,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callGroq(messages) {
+async function callGroq(messages, { jsonMode = false } = {}) {
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
@@ -109,6 +117,7 @@ async function callGroq(messages) {
       model: MODEL,
       messages,
       temperature: 0.6,
+      ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
     }),
   });
 
@@ -178,11 +187,11 @@ export function buildDocumentStatusContext(documents) {
  */
 export async function askAI(
   prompt,
-  { profile, history = [], opportunity, applications = [], document, documents } = {},
+  { profile, history = [], opportunity, applications = [], document, documents, tailoredResumes = [] } = {},
 ) {
   const profileContext = buildProfileContext(profile);
   const opportunityContext = buildOpportunityContext(opportunity);
-  const applicationHistoryContext = buildApplicationHistoryContext(applications);
+  const applicationHistoryContext = buildApplicationHistoryContext(applications, tailoredResumes);
   const documentContext = buildDocumentContext(document);
   const documentStatusContext = buildDocumentStatusContext(documents);
   const systemContent = [
@@ -208,7 +217,7 @@ export async function askAI(
   return callGroqWithErrorHandling(messages);
 }
 
-async function callGroqWithErrorHandling(messages) {
+async function callGroqWithErrorHandling(messages, options = {}) {
   if (!API_KEY) {
     // Developer-facing — this should never reach a real user in production.
     throw new Error(
@@ -217,7 +226,7 @@ async function callGroqWithErrorHandling(messages) {
   }
 
   try {
-    return await callGroq(messages);
+    return await callGroq(messages, options);
   } catch (error) {
     console.error("Groq Error:", error);
 
@@ -236,7 +245,7 @@ async function callGroqWithErrorHandling(messages) {
       // Rate limit — retry automatically once after 2 seconds before giving up.
       await sleep(2000);
       try {
-        return await callGroq(messages);
+        return await callGroq(messages, options);
       } catch (retryError) {
         console.error("Groq Error (after retry):", retryError);
         throw new Error("QUOTA_EXCEEDED: You've hit the Groq rate limit. Try again shortly.");
@@ -259,6 +268,22 @@ async function callGroqWithErrorHandling(messages) {
     }
 
     throw new Error(`AI_ERROR: ${message}`);
+  }
+}
+
+/**
+ * askAIForJSON(messages) — the one place in the app that asks Groq for
+ * strict JSON, for callers (like services/jobAnalyzer.js) that need a
+ * structured object rather than markdown. Parses and returns the object;
+ * throws INVALID_JSON on malformed output so the caller's own retry logic
+ * (never a fabricated fallback) can decide what to do.
+ */
+export async function askAIForJSON(messages) {
+  const text = await callGroqWithErrorHandling(messages, { jsonMode: true });
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("INVALID_JSON: Groq did not return valid JSON.");
   }
 }
 
