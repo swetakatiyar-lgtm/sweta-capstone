@@ -485,16 +485,22 @@ export default function Documents() {
         {/* Tailored Application Documents — additive only. Job-specific
             derivatives created by the Resume Agent from Opportunity Detail;
             the master resume above is never modified by these. */}
-        {tailoredResumes.length > 0 && (
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-[#18181B]">
-              <Sparkles size={17} className="text-[#8B7CF6]" />
-              Tailored Application Documents
-            </h2>
-            <p className="mt-1 text-sm text-[#9CA3AF]">
-              Job-specific resume versions generated from your master resume — it stays unchanged above.
-            </p>
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#18181B]">
+            <Sparkles size={17} className="text-[#8B7CF6]" />
+            Tailored Application Documents
+          </h2>
+          <p className="mt-1 text-sm text-[#9CA3AF]">
+            Job-specific resume versions generated from your master resume — it stays unchanged above.
+          </p>
 
+          {tailoredResumes.length === 0 ? (
+            <HoverCard className="mt-4 rounded-[28px] border border-dashed border-[#ECE8DF] bg-white p-10 text-center shadow-sm">
+              <p className="text-[#6B7280]">
+                Tailored resumes will appear here after you tailor a resume for a job from Opportunity Detail.
+              </p>
+            </HoverCard>
+          ) : (
             <div className="mt-4 space-y-3">
               {tailoredResumes.map((record) => (
                 <div
@@ -545,8 +551,8 @@ export default function Documents() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
       </div>
     </SkillLayout>
