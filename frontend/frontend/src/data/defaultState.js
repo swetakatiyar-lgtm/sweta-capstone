@@ -11,10 +11,10 @@ export const defaultProfile = {
   skills: [],
   preferredRole: '',
   // Multi-select preferred roles from Onboarding (mirrors the Skills
-  // multi-select pattern). `preferredRole` (singular) is kept alongside it
-  // — set to the first selected role — for existing single-role consumers
-  // (Scout's default search query, matching, AI context) that haven't been
-  // migrated to read the array yet.
+  // multi-select pattern) — this array is the source of truth used by
+  // Scout/Dashboard/Daily Brief search and lib/match.js scoring.
+  // `preferredRole` (singular, set to the first selected role) is kept only
+  // for the one remaining single-role UI in Settings.
   preferredRoles: [],
   preferredLocations: [],
   minStipend: 0,

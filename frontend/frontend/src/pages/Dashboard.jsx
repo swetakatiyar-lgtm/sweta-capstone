@@ -16,7 +16,7 @@ import {
 import { Link } from "react-router-dom";
 import HoverCard from "../components/ui/HoverCard";
 import { useApp } from "../context/AppContext";
-import { computeMatch } from "../lib/match";
+import { computeMatch, preferredRoleList } from "../lib/match";
 import { verifyCompany } from "../services/verify";
 import { searchJobs } from "../services/jobs";
 import { categoryStatus } from "../lib/readiness";
@@ -47,7 +47,7 @@ export default function Dashboard() {
     let cancelled = false;
     setLoading(true);
     searchJobs({
-      query: profile.preferredRole,
+      query: preferredRoleList(profile).join(" ") || "internship",
       location: profile.preferredLocations?.find((l) => l.toLowerCase() !== "remote") || "",
       remoteOnly: profile.workMode === "remote",
       resultsPerPage: 12,

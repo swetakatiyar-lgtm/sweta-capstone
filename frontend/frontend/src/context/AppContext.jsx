@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { defaultActivity, defaultDocuments, defaultProfile, defaultSettings } from '../data/mockData'
+import { defaultActivity, defaultDocuments, defaultProfile, defaultSettings } from '../data/defaultState'
 import { loadState, saveState } from '../lib/storage'
 import { createApplicationRecord } from '../lib/agent'
 import { computeReadiness } from '../lib/readiness'

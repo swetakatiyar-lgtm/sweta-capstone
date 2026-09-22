@@ -15,7 +15,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { computeMatch } from "../lib/match";
+import { computeMatch, preferredRoleList } from "../lib/match";
 import { verifyCompany } from "../services/verify";
 import { searchJobs } from "../services/jobs";
 import { categoryStatus } from "../lib/readiness";
@@ -46,7 +46,7 @@ export default function DailyBrief() {
   useEffect(() => {
     let cancelled = false;
     searchJobs({
-      query: profile.preferredRole,
+      query: preferredRoleList(profile).join(" ") || "internship",
       location: profile.preferredLocations?.find((l) => l.toLowerCase() !== "remote") || "",
       remoteOnly: profile.workMode === "remote",
       resultsPerPage: 12,
