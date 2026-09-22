@@ -26,7 +26,7 @@ export function skillAlignment(opp, profile) {
 // Multi-role aware — `preferredRoles` (the real multi-select from
 // Onboarding/Settings) is checked in full; `preferredRole` (singular) is
 // only a fallback for profiles saved before that field existed.
-function preferredRoleList(profile) {
+export function preferredRoleList(profile) {
   if (profile.preferredRoles?.length) return profile.preferredRoles
   return profile.preferredRole ? [profile.preferredRole] : []
 }

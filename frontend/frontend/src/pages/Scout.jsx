@@ -17,7 +17,7 @@ import {
 import SkillLayout from "../components/SkillLayout";
 import HoverCard from "../components/ui/HoverCard";
 import { useApp } from "../context/AppContext";
-import { computeMatch, matchReasons } from "../lib/match";
+import { computeMatch, matchReasons, preferredRoleList } from "../lib/match";
 import { verifyCompany } from "../services/verify";
 import TrustBadge from "../components/TrustBadge";
 import CompanyLogo from "../components/CompanyLogo";
@@ -69,7 +69,7 @@ export default function Scout() {
   const filter = searchParams.get("filter");
   const sort = searchParams.get("sort");
 
-  const [query, setQuery] = useState(profile.preferredRole || "internship");
+  const [query, setQuery] = useState(preferredRoleList(profile).join(" ") || "internship");
   const [locationQuery, setLocationQuery] = useState(
     profile.preferredLocations?.find((l) => l.toLowerCase() !== "remote") || "",
   );

@@ -109,7 +109,11 @@ async function fetchAdzuna({ query, location, page, resultsPerPage, maxDaysOld }
     app_id: ADZUNA_APP_ID,
     app_key: ADZUNA_APP_KEY,
     results_per_page: String(resultsPerPage),
-    what: query || 'internship',
+    // `what` ANDs every word together — wrong when `query` is several
+    // distinct roles (e.g. "UX Designer Product Manager") joined for a
+    // multi-role profile. `what_or` matches any of the words instead, and
+    // behaves identically to `what` for a single-term query.
+    what_or: query || 'internship',
     sort_by: 'date',
     'content-type': 'application/json',
   })
