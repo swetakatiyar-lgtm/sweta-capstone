@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Search, Bell } from 'lucide-react'
+import { Search, Bell, LogIn, LogOut } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import { useAuth } from '../../context/AuthContext'
 
 export default function Topbar({ title }) {
   const [query, setQuery] = useState('')
@@ -9,6 +10,7 @@ export default function Topbar({ title }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { settings, updateSettings } = useApp()
+  const { user, isSignedIn, authLoading, isFirebaseConfigured, signInWithGoogle, signOutUser } = useAuth()
 
   useEffect(() => {
     const handler = (e) => {
@@ -64,6 +66,37 @@ export default function Topbar({ title }) {
         >
           <Bell size={16} strokeWidth={1.75} />
         </button>
+
+        {/* Google sign-in — only rendered once Firebase is actually
+            configured (see services/firebase.js), so the topbar looks
+            exactly as before until real credentials are added. */}
+        {isFirebaseConfigured && !authLoading && (
+          isSignedIn ? (
+            <button
+              type="button"
+              onClick={signOutUser}
+              aria-label={`Sign out of ${user.email ?? 'Google account'}`}
+              title={user.email ?? 'Sign out'}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline/70 bg-surface/70 text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lavender"
+            >
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full" />
+              ) : (
+                <LogOut size={16} strokeWidth={1.75} />
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={signInWithGoogle}
+              aria-label="Sign in with Google"
+              title="Sign in with Google"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline/70 bg-surface/70 text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lavender"
+            >
+              <LogIn size={16} strokeWidth={1.75} />
+            </button>
+          )
+        )}
       </div>
     </header>
   )

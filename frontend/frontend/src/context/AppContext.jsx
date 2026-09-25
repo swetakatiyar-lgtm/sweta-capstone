@@ -1,8 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { defaultActivity, defaultDocuments, defaultProfile, defaultSettings } from '../data/defaultState'
-import { loadState, saveState } from '../lib/storage'
+import { loadState, saveState, mergeState } from '../lib/storage'
+import { loadCloudState, saveCloudState } from '../lib/cloudSync'
 import { createApplicationRecord } from '../lib/agent'
 import { computeReadiness } from '../lib/readiness'
+import { useAuth } from './AuthContext'
 
 const AppContext = createContext(null)
 
@@ -42,10 +44,42 @@ function timeNow() {
 
 export function AppProvider({ children }) {
   const [state, setState] = useState(() => loadState(defaultState))
+  const { user } = useAuth()
+  const cloudLoadedForUid = useRef(null)
+  const saveTimer = useRef(null)
 
   useEffect(() => {
     saveState(state)
   }, [state])
+
+  // On sign-in, pull this user's cloud state (if any) and merge it over
+  // whatever is currently loaded — same schema-safety merge used for
+  // localStorage, so an older/foreign shape can't corrupt the app. Runs
+  // once per uid, not on every state change (guarded by cloudLoadedForUid).
+  useEffect(() => {
+    if (!user || cloudLoadedForUid.current === user.uid) return
+    cloudLoadedForUid.current = user.uid
+    let cancelled = false
+    loadCloudState(user.uid).then((cloud) => {
+      if (cancelled || !cloud) return
+      setState((prev) => mergeState(prev, cloud))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  // Debounced push to Firestore whenever signed-in-user state changes — a
+  // no-op (see cloudSync.js) when signed out or Firebase isn't configured,
+  // so local-only usage is completely unaffected.
+  useEffect(() => {
+    if (!user) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      saveCloudState(user.uid, state)
+    }, 1500)
+    return () => clearTimeout(saveTimer.current)
+  }, [state, user])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', state.settings.theme)
